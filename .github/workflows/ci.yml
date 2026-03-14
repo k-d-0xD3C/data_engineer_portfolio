@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [project-mortgage-pipeline, project-real-estate-lakehouse]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.project }}
+        run: |
+          uv venv
+          source .venv/bin/activate
+          uv pip install -r requirements.txt
+
+      - name: Lint with Ruff
+        working-directory: ${{ matrix.project }}
+        run: |
+          source .venv/bin/activate
+          ruff check src/
+
+      - name: Run tests
+        working-directory: ${{ matrix.project }}
+        run: |
+          source .venv/bin/activate
+          pytest tests/ -v
