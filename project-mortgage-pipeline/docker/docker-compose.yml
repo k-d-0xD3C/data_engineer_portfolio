@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: mortgage_kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  kafka-init:
+    image: apache/kafka:3.7.0
+    container_name: mortgage_kafka_init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command: |
+      "
+      echo 'Creating Kafka topics...'
+
+      /opt/kafka/bin/kafka-topics.sh \
+        --bootstrap-server kafka:9092 \
+        --create --if-not-exists \
+        --topic mortgage-rates-raw \
+        --partitions 3 \
+        --replication-factor 1 \
+        --config retention.ms=604800000 \
+        --config message.timestamp.type=LogAppendTime
+
+      /opt/kafka/bin/kafka-topics.sh \
+        --bootstrap-server kafka:9092 \
+        --create --if-not-exists \
+        --topic mortgage-rates-validated \
+        --partitions 3 \
+        --replication-factor 1 \
+        --config retention.ms=604800000
+
+      /opt/kafka/bin/kafka-topics.sh \
+        --bootstrap-server kafka:9092 \
+        --create --if-not-exists \
+        --topic mortgage-rates-dead-letter \
+        --partitions 1 \
+        --replication-factor 1 \
+        --config retention.ms=2592000000
+
+      echo 'Topics created successfully'
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list
+      "
+    restart: on-failure
+
+volumes:
+  kafka_data:
+
+networks:
+  default:
+    name: de_portfolio_network
+    external: true
