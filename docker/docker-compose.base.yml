@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
 
   postgres:
@@ -14,7 +12,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U deuser"]
+      test: ["CMD-SHELL", "pg_isready -U deuser -d de_portfolio"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -64,3 +62,8 @@ volumes:
   postgres_data:
   minio_data:
   grafana_data:
+
+networks:
+  default:
+    name: de_portfolio_network
+    external: true
