@@ -1,0 +1,46 @@
+services:
+
+  reno-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    container_name: reno_api
+    environment:
+      POSTGRES_HOST: de_postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: de_portfolio
+      POSTGRES_USER: deuser
+      POSTGRES_PASSWORD: depassword
+      MINIO_ENDPOINT: http://de_minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: house-reno-tracker
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8003
+      DEBUG: "false"
+    ports:
+      - "8003:8003"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  reno-frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+    container_name: reno_frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      reno-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  default:
+    name: de_portfolio_network
+    external: true
